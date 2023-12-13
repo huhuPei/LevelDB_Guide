@@ -1,10 +1,10 @@
 # LevelDB_Guide
 关于LevelDB的源码解析 ——基于leveldb v1.18版本
 
-学习要点：
-1、Slice 轻量级字符串
-2、Arena 内存管理
-3、coding 编码与解码
+学习要点：  
+Slice 轻量级字符串  
+Arena 内存管理  
+coding 编码与解码   
 4、compare（装饰器设计模式）
 5、logblock设计
 6、Skiplist实现（四叉）
