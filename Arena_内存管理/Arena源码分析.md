@@ -7,13 +7,13 @@ KV 数据内存分配存在的问题：
 因此需要一个内存池管理 KV 数据的内存分配。
 
 #### 设计思路
-先 new 申请一块较大的内存块，当分配小内存时，会在这块预留的内存块上分配空闲空间，若空间用完，就会再申请一块；  
+先 new 申请一块较大的内存块，当分配小内存时，会在这块预留的内存块上分配剩余空间，若空间用完，就会再申请一块；  
 当分配较大内存时，直接使用 new 分配内存并使用，不使用预留的块，这个主要是考虑到内存使用率问题。
 
 #### 分析
-1. Arena 的结构设计是比较简单的。
-用一个 vector 数组保存所有分配的内存块；   
-用 alloc_ptr_ 指向当前内存块空闲空间的首地址；   
+1. Arena 的结构设计是比较简单的。   
+用一个 vector 数组保存所有分配的内存块地址（内存块默认大小为4KB）；   
+用 alloc_ptr_ 指向当前内存块剩余空间的首地址；   
 用 alloc_bytes_remaining_ 记录当前内存块剩余空闲空间大小；
 ```
 // util/arena.h
@@ -33,17 +33,62 @@ class Arena {
 }
 ```
 2. 内存分配策略
-  
+- 若需要内存小于当前内存块的剩余空间，由当前内存块分配，并移动内存指针，更改剩余大小；
+- 若需要内存大于当前内存块的剩余空间，将会申请新的内存空间；
+    注：分配新内存都会调用该函数 -> AllocateFallback()
+```
+// util/arena.h
+inline char* Arena::Allocate(size_t bytes) {
+  // The semantics of what to return are a bit messy if we allow
+  // 0-byte allocations, so we disallow them here (we don't need
+  // them for our internal use).
+  assert(bytes > 0);
+  if (bytes <= alloc_bytes_remaining_) {
+    char* result = alloc_ptr_;
+    alloc_ptr_ += bytes;
+    alloc_bytes_remaining_ -= bytes;
+    return result;
+  }
+  return AllocateFallback(bytes);
+}
+```
+- 当分配新的内存空间时，如果大于内存块大小的1/4，就会直接申请所需内存大小，并独占整块内存，当前内存块不变；
+- 否则，申请新的内存块（默认4KB），当前内存块指向新块，然后分配所需内存。
+```
+char* Arena::AllocateFallback(size_t bytes) {
+  if (bytes > kBlockSize / 4) {
+    // Object is more than a quarter of our block size.  Allocate it separately
+    // to avoid wasting too much space in leftover bytes.
+    char* result = AllocateNewBlock(bytes);
+    return result;
+  }
+
+  // We waste the remaining space in the current block.
+  alloc_ptr_ = AllocateNewBlock(kBlockSize);
+  alloc_bytes_remaining_ = kBlockSize;
+
+  char* result = alloc_ptr_;
+  alloc_ptr_ += bytes;
+  alloc_bytes_remaining_ -= bytes;
+  return result;
+}
+```
 
 3. 内存对齐分配
+
 #### 源代码
 ```
 util/arena.h 
 util/arena.cc
 ```
 #### 小结
+在 leveldb 中，Arena只用于Memtable底层skiplist键值插入时的内存分配，其他场景如SSTable、WAL都需要比较大的内存，同时内存申请操作频次低，所以都不会用到。
 
-#### PS：
+#### PS： 
+- 思考：Arena内存分配不采用轮询内存块的方式，而是只使用当前内存块进行分配，也就是不管上一个内存块剩余多少，这样会不会造成内存浪费呢？
+答案是肯定的，但是内存浪费的程度是可以接受的。
+首先，leveldb的 KV 数据是没有删除操作的，只有插入操作，所有之前分配的内存不会回收再分配，浪费的内存只有内存块末尾的剩余空间；
+其次，内存分配策略中，大于1KB 的内存会使用单独分配内存，同时 KV 一般都是内存比较小的数据，基本不会出现剩余990B，需要991B的情况，所以最后浪费的空间都是比较小的。
 - 编程技巧
 当需要禁止对象拷贝操作时，可以将拷贝构造函数与拷贝赋值函数设置为私有（在 leveldb 源码中大量使用了这个用法）。
 在C++11之后，可以使用=delete操作实现相同的效果。
