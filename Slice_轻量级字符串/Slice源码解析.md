@@ -1,7 +1,6 @@
 <!-- <h2><span style="border-bottom: 2px solid black;">Slice</span></h2>
 <hr size="2px"/> -->
 ## Slice
-<hr style="height:2px; margin-top:0;" />
 
 Slice 是 LevelDB 中使用的字符串类型，用于内存中 key-value 的字符串表示，具有开销低、取值速度快等特点。
 
