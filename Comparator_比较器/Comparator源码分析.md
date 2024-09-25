@@ -1,3 +1,6 @@
+## Comparator 
+<hr style="height:2px; margin-top:0;" />
+
 leveldb 的底层数据结构是跳表，数据是有序的，所以在插入或者查找数据时，需要进行数据大小的比较，Comparator 就是为了定义比较规则设计的接口。   
 
 Comparator的内部设计使用了装饰器模式。
@@ -57,7 +60,7 @@ int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
 ```
 
 3. 默认比较器
-utils 提供了一个默认比较器，规则是按字节序排序。
+utils 提供了一个默认比较器，规则是按字节大小排序。
 
 #### PS：
 - 编码技巧
