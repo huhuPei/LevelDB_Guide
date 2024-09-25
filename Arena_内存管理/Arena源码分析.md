@@ -35,6 +35,7 @@ class Arena {
 }
 ```
 原理图示：
+
 ![arena 示例](../img/arena.png "arena")
 
 2.&nbsp;内存分配策略
