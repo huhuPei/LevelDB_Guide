@@ -81,7 +81,7 @@ char* Arena::AllocateFallback(size_t bytes) {
 ```
 以上可以看出内存池分配内存的整个过程，其中只有 Allocate() 方法是对用户开放，其他都是私有的，当需要分配内存时，只需调用Allocate()，其他工作由内存池负责完成。  
 
-3.&nbsp;内存对齐分配
+3.&nbsp;内存对齐分配   
 Arena 中还有一个特殊的分配内存的函数 AllocateAligned()，相比于原始的 Allocate()，增加了一个内存对齐操作，可以提高对内存访问的效率。
 ```
 char* Arena::AllocateAligned(size_t bytes) {
@@ -118,8 +118,9 @@ util/arena.cc
 2.&nbsp;编程技巧   
 - 禁止对象拷贝操作：可以将拷贝构造函数与拷贝赋值函数设置为私有（在 leveldb 源码中大量使用了这个用法）。
 在C++11之后，可以使用=delete操作实现相同的效果。
+<br>
   ```
-  // util/arena.h
+    // util/arena.h
   class Arena {
   ...
 
@@ -129,4 +130,5 @@ util/arena.cc
     Arena(const Arena&);
     void operator=(const Arena&);
   };
+  ```
 - 2次幂取余：数 m 对一个2次幂数 n 取余时，可以通过 m & (n-1) 进行快速取余，原理如下图所示。

@@ -1,10 +1,9 @@
-## Comparator 
-<hr style="height:2px; margin-top:0;" />
+## Comparator   
 
-leveldb 的底层数据结构是跳表，数据是有序的，所以在插入或者查找数据时，需要进行数据大小的比较，Comparator 就是为了定义比较规则设计的接口。   
+LevelDB 的底层数据结构是跳表，数据是有序的，所以在插入或者查找数据时，需要进行数据大小的比较，Comparator 就是为了定义比较规则设计的接口。   
 
-Comparator的内部设计使用了装饰器模式。
-#### 分析
+Comparator的设计使用了装饰器模式。
+### 分析
 1. Comparator接口设计
 -  Compare( ) 用于实现比较规则；
 -  FindShortestSeparator( )，在 [start,limit)中，找到 >= start 且 < limit的最短字符串，该函数的目的是用于压缩索引长度，主要用于降低索引块的大小，这个需要在 SSTable 的实现中去理解；（可以是空实现）
@@ -62,6 +61,6 @@ int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
 3. 默认比较器
 utils 提供了一个默认比较器，规则是按字节大小排序。
 
-#### PS：
+### PS：
 - 编码技巧
 explicit 关键字使用

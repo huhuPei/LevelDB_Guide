@@ -1,5 +1,4 @@
 ## Encode & Decode
-<hr style="height:2px; margin-top:0;" />
 
 LevelDB 的数据分为内存数据和磁盘数据，内存数据是当前的用户交互数据，保存在 Memtable 中；磁盘数据是持久化数据，保存在 SSTable 中。Memtable 中的数据达到一定数量，就会持久化生成SSTable，最终保存在磁盘上。    
 
