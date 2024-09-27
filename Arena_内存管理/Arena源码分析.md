@@ -118,9 +118,8 @@ util/arena.cc
 2.&nbsp;编程技巧   
 - 禁止对象拷贝操作：可以将拷贝构造函数与拷贝赋值函数设置为私有（在 leveldb 源码中大量使用了这个用法）。
 在C++11之后，可以使用=delete操作实现相同的效果。
-<br>
   ```
-    // util/arena.h
+  // util/arena.h
   class Arena {
   ...
 
