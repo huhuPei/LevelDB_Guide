@@ -23,6 +23,9 @@ memtable key：底层存储的键，在 internal key 基础上加上了前缀长
 为数据添加序列号，可实现版本控制，保证并发下的数据一致性。
 版本控制：默认情况下，get 操作会返回数据的最新版本，也就是序列号最大的 key-value。如果需要读取某一版本的数据，就要进行 snapshot 操作，通过指定一个序列号s，序列号小于等于 s 的数据可以被读取，序列号大于 s 的数据将被隔离，从而实现读取特定版本的数据。
 
+3.&nbsp;memtable key    
+
+
 ### PS
 Q：**sequence number 在数据库内部是一个无符号64位整数，即 8bytes 数据，而 internal key 中 sequence number 字段只有 7bytes，是不是有点矛盾？**   
 sequence number 本身是 8bytes 数据，但在数据编码时，为了节省空间，会进行（seq num << 8) | value type 操作，将 1bytes 留给 value type 使用，也就是sequence number 有效数据只有后 7bytes。

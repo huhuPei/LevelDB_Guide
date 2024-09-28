@@ -25,7 +25,7 @@ LevelDB 的数据分为内存数据和磁盘数据，内存数据是当前的用
     <td>0x0013</td>
 </tr>
 </table>
-小端模式，高位字节存储在地位地址：
+小端模式，低位字节存储在低位地址：
 <table>
 <tr>
     <th>数据</th>
@@ -42,29 +42,101 @@ LevelDB 的数据分为内存数据和磁盘数据，内存数据是当前的用
     <td>0x0013</td>
 </tr>
 </table>
-    以上可以看出两种存储方式的不同。<b>在 leveldb 中统一都采用小端存储数据，也就是说如果平台采用的是大端模式，数据的编码操作会按小端模式进行编码，解码操作也会按小端模式解码。</b>
+    以上可以看出两种存储顺序是相反的。<b>在 leveldb 中统一都采用小端存储数据，也就是说如果平台采用的是大端模式，数据的编码操作会按小端模式进行编码，解码操作也会按小端模式解码。</b>
 
 #### 分析
 
-1. 整数编码   
-对于整数，有定长整数与变长整数，。
-- 定长整数
-判断平台是否为小端模式，如果是小端，直接复制即可；如果是大端，进行数据字节序逆转 —— 每次提取一个字节，按小端字节序放置数据。
+1.&nbsp;整数编码   
+对于整数，有定长整数与变长整数两种编码方式，以下都以32位整数为例。
 
-- 变长整数
+1.1 定长整数
+平台是小端模式，直接复制即可；
+平台是大端模式，按照小端字节序存储数据。
+```
+// util/coding.cc
+// 32bit encode
+void PutFixed32(std::string* dst, uint32_t value) {
+  char buf[sizeof(value)];
+  EncodeFixed32(buf, value);
+  dst->append(buf, sizeof(buf));
+}
+
+void EncodeFixed32(char* buf, uint32_t value) {
+  if (port::kLittleEndian) {
+    memcpy(buf, &value, sizeof(value));
+  } else {
+    buf[0] = value & 0xff;
+    buf[1] = (value >> 8) & 0xff;
+    buf[2] = (value >> 16) & 0xff;
+    buf[3] = (value >> 24) & 0xff;
+  }
+}
+```
+
+1.2 变长整数
 采用 1bit(标志位) + 7bit(数据) 格式进行编码。   
-标志位表示是否为最后一个字节，0表示结束，1表示还有其他字节；数据每次取7bit，从低位开始取，使用小端模式，也就是内存中第一个字节低7位对应数据0-6位，第二个字节低7位对应数据7-13位，以此类推。
-按照此种方式编码，32位整数将使用1-5个字节编码，而64位整数将使用1-10个字节编码。
+对于一个无符号整数，从二进制表示看，第一个非0位之后的所有位才是有效位，所以可以考虑只保存有效位，可以达到压缩存储空间的效果。    
 
-2. 字符串编码   
+**编码规则：**
+标志位表示是否为最后一个字节，0表示最后一个字节，1表示其他字节；数据每次取 7bit，从低位开始取，加上一个标志位，凑成一个字节存储，按照小端字节序，最低的 7bit 存储在最低位的地址中。
+
+以21位有效位的整数为例（v < (1<<128)），结果如下：
+
+```
+// util/coding.cc
+// 32bit encode
+void PutVarint32(std::string* dst, uint32_t v) {
+  char buf[5];
+  char* ptr = EncodeVarint32(buf, v);
+  dst->append(buf, ptr - buf);
+}
+
+char* EncodeVarint32(char* dst, uint32_t v) {
+  // Operate on characters as unsigneds
+  unsigned char* ptr = reinterpret_cast<unsigned char*>(dst);
+  static const int B = 128;
+  if (v < (1<<7)) {
+    *(ptr++) = v;
+  } else if (v < (1<<14)) {
+    ...
+  } else if (v < (1<<21)) {
+    ...
+  } else if (v < (1<<28)) {
+    *(ptr++) = v | B;
+    *(ptr++) = (v>>7) | B;
+    *(ptr++) = (v>>14) | B;
+    *(ptr++) = v>>21;
+  } else {
+    ...
+  }
+  return reinterpret_cast<char*>(ptr);
+}
+```
+按照此种方式编码，32位整数将使用1-5个字节编码，而64位整数将使用1-10个字节编码。整数一般都用来表示字符串的长度，由于绝大部分字符串长度不会超过14个有效位，所以在大数据量下，节省的存储空间还是非常可观的。
+
+2.&nbsp;字符串编码   
 采用长度前缀编码。     
-在字符串前添加长度信息，长度使用变长整数编码。如下：
+在字符串前添加长度信息，长度使用变长整数编码。
+
+```
+// utils/coding.cc
+// size 32bits
+void PutLengthPrefixedSlice(std::string* dst, const Slice& value) {
+  PutVarint32(dst, value.size());
+  dst->append(value.data(), value.size());
+}
+```
+
 
 #### 源码
+```
+util/coding.h 
+util/coding.cc
+```
 
 #### 小结
 
 
 #### PS：
-- 编程技巧
-  数据反向操作。
+编程技巧    
+- 大小端字节序编码
