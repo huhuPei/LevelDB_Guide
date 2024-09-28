@@ -24,7 +24,7 @@ memtable key：底层存储的键，在 internal key 基础上加上了前缀长
 版本控制：默认情况下，get 操作会返回数据的最新版本，也就是序列号最大的 key-value。如果需要读取某一版本的数据，就要进行 snapshot 操作，通过指定一个序列号s，序列号小于等于 s 的数据可以被读取，序列号大于 s 的数据将被隔离，从而实现读取特定版本的数据。
 
 3.&nbsp;memtable key    
-memtable key = 长度信息 + internal key。     
+memtable key = 长度信息 + internal key（前缀编码）。     
 主要就是起到存储的作用，并记录 internal key 的长度。    
 另外一个就是直接在 memtable 中查找数据时，需要传入一个 memtale key，源码中是使用 Lookup Key 结构进行构造。
 
