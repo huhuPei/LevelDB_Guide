@@ -24,13 +24,13 @@ memtable key：底层存储的键，在 internal key 基础上加上了前缀长
 版本控制：默认情况下，get 操作会返回数据的最新版本，也就是序列号最大的 key-value。如果需要读取某一版本的数据，就要进行 snapshot 操作，通过指定一个序列号s，序列号小于等于 s 的数据可以被读取，序列号大于 s 的数据将被隔离，从而实现读取特定版本的数据。
 
 3.&nbsp;memtable key    
-
+memtable key = 长度信息 + internal key。     
+主要就是起到存储的作用，并记录 internal key 的长度。    
+另外一个就是直接在 memtable 中查找数据时，需要传入一个 memtale key，源码中是使用 Lookup Key 结构进行构造。
 
 ### PS
 Q：**sequence number 在数据库内部是一个无符号64位整数，即 8bytes 数据，而 internal key 中 sequence number 字段只有 7bytes，是不是有点矛盾？**   
 sequence number 本身是 8bytes 数据，但在数据编码时，为了节省空间，会进行（seq num << 8) | value type 操作，将 1bytes 留给 value type 使用，也就是sequence number 有效数据只有后 7bytes。
-
-<!-- 3.&nbsp;mentable key -->
 
 ### 小结
 internal key 是 LevelDB 内部的键，具有唯一性，对数据进行操作基本上都是使用 internal key，如迭代器访问，键的比较等。
