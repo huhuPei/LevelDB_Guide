@@ -5,6 +5,7 @@ LevelDB 的底层数据结构是跳表，数据是有序的 key-value，所以�
 Comparator 设计使用了装饰器模式。
 ### 分析
 1.&nbsp;Comparator 接口设计      
+
 Comparator 是比较器的抽象接口，任何比较器实现都会继承这个接口，然后在 Compare() 方法中定义比较规则。 
 ```
 // include/leveldb/comparator.h
@@ -71,8 +72,9 @@ int InternalKeyComparator::Compare(const Slice& akey, const Slice& bkey) const {
 
 
 
-2.&nbsp;高级方法
-Comparator 有两个优化空间的方法。
+2.&nbsp;高级方法      
+
+Comparator 有两个优化空间的高级方法。     
 主要是用于减少索引块中的索引大小，压缩索引块。索引块是在 SSTable 中使用的，后续会在 SSTable 中进行解析，这里不做展开。
 
 ```
@@ -89,7 +91,8 @@ class Comparator {
 ```
 如果不需要这种优化操作，用户自定义 Comparator 时，在这两个方法里可以不做任何操作。
 
-3.&nbsp;默认比较器
+3.&nbsp;默认比较器   
+
 utils 提供了一个默认比较器，规则是按字节大小排序。
 
 ### 源码
