@@ -120,7 +120,7 @@ char* Arena::AllocateAligned(size_t bytes) {
   return result;
 }
 ```
-假设地址为 0 的内存块需要分配 64B 内存，图示：
+假设地址为 0 的内存块需要分配 32B 内存，图示：
 
 ![arena 示例](../img/memoryAlign.png "align")
 
