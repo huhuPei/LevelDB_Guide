@@ -100,6 +100,7 @@ CPU 缓存内存数据时会按照缓存行大小进行地址对齐，CPU 缓存
 2、通过取余操作，获取对齐分配时需要跳过的内存大小；  
 3、所需内存需要加上跳过的内存大小。  
 ```
+// util/arena.cc
 char* Arena::AllocateAligned(size_t bytes) {
   const int align = (sizeof(void*) > 8) ? sizeof(void*) : 8;
   assert((align & (align-1)) == 0);   // Pointer size should be a power of 2
