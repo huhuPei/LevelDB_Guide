@@ -1,8 +1,8 @@
-# Slice
+## Slice
 
 Slice 是 LevelDB 中使用的字符串类型，用于内存中 key-value 的字符串表示，具有开销低、取值速度快等特点。
 
-## 结构体设计
+### 结构体设计
 1.&nbsp;Slice 只有两个字段。   
 - const char* data_ 是指向字符串的指针；  
 - size_t size_ 是字符串的长度，标志字符串的结束；  
@@ -10,7 +10,6 @@ Slice 是 LevelDB 中使用的字符串类型，用于内存中 key-value 的字
 // include/leveldb/slice.h
 class Slice {
  ...
-
  private:
   const char* data_;
   size_t size_;
@@ -50,17 +49,16 @@ Slice s2(str+6, 5);
 
 ![slice 示例](../img/slice.png "slice")
 
-## 小结
+### 小结
 结合以上特点，Slice 的引入避免了大量的字符串拷贝，提高了读取字符串的效率。   
 在 Leveldb 的代码中，会涉及到大量读取内存字符串的操作，这些操作都会使用 Slice 来代替字符串，进行参数传递和返回，从而提高了数据库整体的性能。  
 
-## 源代码
+### 参考文件
 ```
 include/leveldb/slice.h
 ```
 
-## PS：
-
+### PS
 **使用细节**    
 1、在使用 Slice 时需要特别注意，必须保证传入的外部字符串，在 Slice 还指向它时，不能被销毁。如果被销毁将是危险的，因为 Slice 中的指针将成为野指针，其行为结果将是不确定的。    
 2、由于不再需要 '\0' 作为字符串结束的标记，所以逻辑上讲字符串中是可以包含 '\0' 字符的。  
