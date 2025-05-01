@@ -6,9 +6,9 @@
 1. Slice 轻量级字符串  
 2. Arena 内存管理  
 3. Coding 编码与解码   
-4. Key 内部设计
+4. Key 内部设计（序列号机制）
 5. Comparator 比较器（装饰器设计模式）
-6. Skiplist 实现（四叉）
+6. Skiplist 实现（分支为四）
 7. MemTable 内存结构
 ### SSTable
 1. SSTable 持久化
