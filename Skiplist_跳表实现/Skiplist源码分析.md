@@ -23,7 +23,7 @@
 在第三层级，后继节点 25 > 12，移动到下一层级；  
 在第二层级，后继节点 9 < 12，遍历到节点 9；   
 在第二层级，后继节点 17 > 12， 移动到下一层级；   
-在第一层级，后继节点 12 >= 12，已经在最后一层，检查后继节点的值，等于12，查找成功。  
+在第一层级，后继节点 12 >= 12，已经在最低一层，检查后继节点的值，等于12，查找成功。  
 
 **插入规则**    
 节点在插入时，先通过查找规则找到合适的插入位置，然后更新每一层级前任节点和自身的 next 指针。  
@@ -95,7 +95,6 @@ skiplist 是 Memtable 的底层存储结构，用于存储 memtable key；
 class SkipList {
   ...
 private:
-
   enum { kMaxHeight = 12 };
   // Immutable after construction
   Comparator const compare_;
@@ -140,7 +139,7 @@ Node* SkipList::FindGreaterOrEqual(const Key& key, Node** prev) const {
       // 可以记录每一层级的前任节点，用于插入节点时使用
       if (prev != NULL) prev[level] = x;
       if (level == 0) {
-        // 已经到达最后一层，返回当前后继节点，显然是第一个 >= key 的节点
+        // 已经到达最低一层，返回当前后继节点，显然是第一个 >= key 的节点
         return next;
       } else {
         // 移动到下一层级
@@ -150,14 +149,14 @@ Node* SkipList::FindGreaterOrEqual(const Key& key, Node** prev) const {
   }
 }
 ```
-比较规则：   
+key 比较规则：   
 1、NULL 表示无限大值，任意节点都会小于 NULL；    
-2、比较 user key 和 seq num，user key 按字节大小升序排序（默认），seq num 按降序排序。    
+2、比较 internal key。先比较 user key ，然后比较 seq num。（user key 升序排序（默认按字节大小），seq num 降序排序。）   
 ```
 // 判断 key 是否大于 next->key
 bool SkipList::KeyIsAfterNode(const Key& key, Node* n) const {
   // NULL 必返回 false；
-  // compare_ 重写了 operator()方法，内部调用了 InternalKeyComparator 比较器
+  // compare_ 重写了 operator()方法，内部调用了 InternalKeyComparator 进行 internal key 的比较
   return (n != NULL) && (compare_(n->key, key) < 0);
 }
 ```
@@ -168,8 +167,8 @@ bool SkipList::KeyIsAfterNode(const Key& key, Node* n) const {
 如上图所示，现有一个跳表存储的结构片段示例，key1 插入了三个版本 {3, 2, 1}，key2 插入了一个版本 {1}，且 key2 > key1。由于序列号是降序排序，那么有 {uk: key1, s: 11} < {uk: key1, s: 10} < {uk: key1, s:7}。    
 
 **序列号与读取操作**   
-序列号的作用是实现快照隔离。序列号随时间增长，可以表示某一时刻用户读取数据时，数据所处的状态，也就是快照。在用户读取数据时，需要传入一个序列号，在这个序列号之后的更新将被隔离。   
-现在用户使用序列号 8，读取 key1 的值，内部会返回 {uk: key1, s: 7, v: 1}，那么读取到的值为 1，在这之后的更新版本 {3, 2} 对用户来说是不可见的，用户只能读取到序列号8 之前的最近的数据。    
+序列号的作用是实现快照隔离。序列号随时间递增，可以表示某一时刻用户读取数据时，数据所处的状态，也就是快照。在用户读取数据时，需要传入一个序列号，在这个序列号之后的更新将被隔离。
+例：现在用户使用序列号 8，读取 key1 的值，跳表内部会找到第一个 >= {uk: key1, s: 8} 的节点，如果 key1 存在，那么会找到第一个 seq num <= 8 的节点，即 {uk: key1, s: 7, v: 1}，最终读取到的值为 1，在这之后的更新版本 {3, 2} 对用户来说是不可见的，用户只能读取到序列号8 之前的最新数据 1。        
 
 ### 源码
 ```
