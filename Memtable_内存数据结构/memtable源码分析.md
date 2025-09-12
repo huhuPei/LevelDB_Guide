@@ -4,7 +4,7 @@ LevelDB 的数据分为内存数据和磁盘数据，内存数据是当前用户
 ### 结构设计
 **存储格式**   
 
-![memtable entry](../img/memEntry.png "memtable entry")
+![memtable entry](../img/memEntry.png "memtable entry")    
 key 解析可见：[Key存储分析](../Key_键值对存储/Key存储分析.md)
 
 #### 内部成员
