@@ -88,7 +88,7 @@ memtable 存储的是 memtable key，它是字符串，所以 Key 被指定为 c
 
 #### 结构
 1、kMaxHeight 最大高度设置为12，理想节点数为4096，这跟 Memtable 的大小有关；        
-2、compare_ 是 key 对应的比较器；  
+2、compare_ 是 key 对应的比较器，内部通过 () 调用，需要实现 operator() 方法。
 3、arena_ 内存池用于分配节点内存；  
 4、head_ 指向跳表头节点；  
 5、rnd_ 生成均匀分布的随机数。  

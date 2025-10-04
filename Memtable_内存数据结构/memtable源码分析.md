@@ -24,7 +24,9 @@ class Memtable {
     int operator()(const char* a, const char* b) const;
   };
 
-  // 示例化跳表模板，指定 entry 的类型为 const char*，comparator 类型为 KeyComparator
+  // 实例化跳表模板，并重命名为 Table
+  // memtable key 是字符串，指定模板参数 Key 为 const char*，Comparator 为 KeyComparator
+  // KeyComparator 实现了 memtable key 的比较逻辑。
   typedef SkipList<const char*, KeyComparator> Table;
 
   KeyComparator comparator_;
@@ -44,6 +46,15 @@ int MemTable::KeyComparator::operator()(const char* aptr, const char* bptr)
   Slice a = GetLengthPrefixedSlice(aptr);
   Slice b = GetLengthPrefixedSlice(bptr);
   return comparator.Compare(a, b);
+}
+
+static Slice GetLengthPrefixedSlice(const char* data) {
+  uint32_t len;
+  const char* p = data;
+  // 解码得到长度，32位变长长度编码最多是5个字节，所以 p+5 是长度信息最大的结束边界
+  // 解码后，指针p指向 internal key 的起始地址
+  p = GetVarint32Ptr(p, p + 5, &len);
+  return Slice(p, len);
 }
 ``` 
 从这里也可以看出不同 key 对应这不同的比较器：    
@@ -172,7 +183,7 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
   return false;
 }
 ```
-memtable 没有进行 seq num 的检查，因为跳表内部已经过滤掉序列号过大的值了。 
+memtable 没有进行序列号检查，因为跳表内部已经过滤掉序列号过大的值了。 
 ### 参考文件
 ```
 db/memtable.h
