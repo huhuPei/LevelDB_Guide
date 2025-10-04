@@ -25,7 +25,7 @@ class Memtable {
   };
 
   // 实例化跳表模板，并重命名为 Table
-  // memtable key 是字符串，指定模板参数 Key 为 const char*，Comparator 为 KeyComparator
+  // entry(key-value pair) 是字符串，指定模板参数 Key 为 const char*，Comparator 为 KeyComparator
   // KeyComparator 实现了 memtable key 的比较逻辑。
   typedef SkipList<const char*, KeyComparator> Table;
 
@@ -110,8 +110,8 @@ void MemTable::Add(SequenceNumber s, ValueType type,
 ### 读写操作
 读写操作涉及的技术点在其他文章中都已经分析过。
 #### 写操作
-1、分配 entry 内存，将 user key 和 value 编码为 entry；   
-2、根据 internal key 找到插入位置，生成新节点，新节点数据指针指向 entry，然后插入到跳表中。
+1、创建 entry。分配所需内存，将 user key 和 value 编码为 entry；   
+2、插入跳表。先根据 internal key 找到插入位置，然后生成新节点，其数据指针指向 entry，最后根据插入规则修改前缀和新节点各层 next 指针。
 ```
 // db/memtable.cc
 void MemTable::Add(SequenceNumber s, ValueType type,
