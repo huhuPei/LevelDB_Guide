@@ -39,5 +39,6 @@ int main() {
 s1: hello
 s2: world
 s4: def
+s3: abc
 s4: hhh
 */
