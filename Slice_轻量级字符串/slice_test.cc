@@ -20,7 +20,7 @@ int main() {
         // str2 指向字符串字面量，存储在静态数据区
         const char* str1 = "abc";
         // s3 指向的是静态数据，是安全的 
-        Slice s3(str1);
+        s3 = Slice(str1);
         // string 内部字符串数据存储在堆内存上，在对象销毁时，内存会被释放
         std::string str2("def");
         // s4 指向堆内存
@@ -29,6 +29,7 @@ int main() {
     }
     // str2 已销毁，内存释放被系统回收，str3 会重新使用回收后的内存 
     std::string str3("hhh");
+    std::cout << "s3: "<< s3.ToString() << std::endl;
     // s4 指向已释放的内存（该内存已被 str3 使用），属于非法访问，操作不安全   
     std::cout << "s4: "<< s4.ToString() << std::endl;
     return 0;
