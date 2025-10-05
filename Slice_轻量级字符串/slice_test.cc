@@ -11,8 +11,8 @@ int main() {
     Slice s1(str, 5);
     //切片操作 str[6:n) == "world"
     Slice s2(str+6, 5);
-    std::cout << "s1: " << s1.data() << std::endl;
-    std::cout << "s2: " << s2.data() << std::endl;
+    std::cout << "s1: " << s1.ToString() << std::endl;
+    std::cout << "s2: " << s2.ToString() << std::endl;
     
     Slice s3;
     Slice s4;
@@ -25,17 +25,17 @@ int main() {
         std::string str2("def");
         // s4 指向堆内存
         s4 = Slice(str2);
-        std::cout << "s4: " << s4.data() << std::endl;
+        std::cout << "s4: " << s4.ToString() << std::endl;
     }
     // str2 已销毁，内存释放被系统回收，str3 会重新使用回收后的内存 
     std::string str3("hhh");
-    // s4 指向已释放的内存（该内存已被 str3 重使用），属于非法访问，操作不安全   
-    std::cout << "s4: "<< s4.data() << std::endl;
+    // s4 指向已释放的内存（该内存已被 str3 使用），属于非法访问，操作不安全   
+    std::cout << "s4: "<< s4.ToString() << std::endl;
     return 0;
 }
 
 /* Output:
-s1: hello world
+s1: hello
 s2: world
 s4: def
 s4: hhh
