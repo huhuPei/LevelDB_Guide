@@ -83,7 +83,7 @@ P(h=k) = 1/2<sup>k-1</sup>。
 
 ### 内部实现
 skiplist 是 memtable 的底层存储结构，用 entry 表示每条数据，其类型由外部指定。它有两个模板参数，Key 表示 entry 数据类型, Comparator 表示数据类型对应的比较器类型。   
-memtable 存储的是 key-value pair，它是一个连续的字符串，所以 Key 被指定为 const char*。相应地，Comparator 被指定为 KeyComparator，它包含一个InternalKeyComparator 成员，用于比较 internal key。
+memtable entry 本质是 key-value pair，它是一个连续的字符串，所以 Key 被指定为 const char*。相应地，Comparator 被指定为 KeyComparator，它包含一个InternalKeyComparator 成员，用于比较 internal key。
 
 #### 结构
 1、kMaxHeight 最大高度设置为12，理想节点数为4096，这跟 Memtable 的大小有关；        
