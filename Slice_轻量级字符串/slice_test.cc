@@ -4,7 +4,6 @@
 #include "leveldb/slice.h"
 
 using leveldb::Slice;
-using namespace std;
 
 int main() {
     const char* str = "hello world";
@@ -29,7 +28,7 @@ int main() {
         std::cout << "s4: " << s4.data() << std::endl;
     }
     // str2 已销毁，内存释放被系统回收，str3 会重新使用回收后的内存 
-    string str3("hhh");
+    std::string str3("hhh");
     // s4 指向已释放的内存（该内存已被 str3 重使用），属于非法访问，操作不安全   
     std::cout << "s4: "<< s4.data() << std::endl;
     return 0;
