@@ -63,7 +63,8 @@ Comparator 解析可见：[Comparator源码分析](../Comparator_比较器/Compa
 
 #### 存储细节
 **跳表节点**   
-跳表的节点包括一个 key 和 next_ 指针数组，在 Memtable 实现上，key 的类型会被指定为 const char*，指向节点数据——entry；next_ 是每一层的指针，指向后继节点，默认只包含一个，即最低一层的指针，指针的数量等于节点高度，高度是一个随机值。
+跳表的节点包括一个 key 和 next_ 指针数组，key 是数据字段，存储 entry；next_ 是每一层的指针，指向后继节点，默认只包含一个，即最低一层的指针，指针的数量等于节点高度（一个随机值）。    
+在 Memtable 实现上，key 的类型会被指定为 const char*，指向真实的 entry。
 ```
 template<typename Key, class Comparator>
 struct SkipList<Key,Comparator>::Node {
