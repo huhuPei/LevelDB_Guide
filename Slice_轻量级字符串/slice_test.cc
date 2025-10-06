@@ -1,7 +1,7 @@
 #include <string>
 #include <iostream>
 
-#include "leveldb/slice.h"
+#include "slice.h"
 
 using leveldb::Slice;
 
