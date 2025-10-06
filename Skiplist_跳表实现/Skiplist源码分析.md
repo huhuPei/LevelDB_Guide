@@ -1,6 +1,6 @@
 ## Skiplist
 
-跳表，作为 Memtable 的存储结构，具有数据有序、存取高效等特点。它是基于概率的链表结构，在随机数据分布均匀的情况下，性能可以媲美平衡树（如红黑树），存取时间复杂度可达到 O(log n)。在代码实现上也更加简单，可以较好地替代平衡树。      
+跳表，作为 Memtable 底层存储，具有数据有序、存取高效等特点。它是基于概率的链表结构，在随机数据分布均匀的情况下，性能可以媲美平衡树（如红黑树），存取时间复杂度可达到 O(log n)。在代码实现上也更加简单，可以较好地替代平衡树。      
 
 ### 基本原理
 ![skiplist image1](../img/skiplist_random.png "实际分布") 
@@ -82,14 +82,29 @@ P(h=k) = 1/2<sup>k-1</sup>。
 跳表每次查找都会跳过一定数量的节点，这就是跳表加快查询速度的原因。在分支数为2 时，最理想的效果就是每次跳过一半的节点。
 
 ### 内部实现
-skiplist 是 memtable 的底层存储结构，用 entry 表示每条数据，其类型由外部指定。它有两个模板参数，Key 表示 entry 数据类型, Comparator 表示数据类型对应的比较器类型。   
-memtable entry 本质是 key-value pair，它是一个连续的字符串，所以 Key 被指定为 const char*。相应地，Comparator 被指定为 KeyComparator，它包含一个InternalKeyComparator 成员，用于比较 internal key。
+skiplist 用 entry 表示每条数据，其类型由用户指定。它有两个模板参数，Key 表示 entry 数据类型，Comparator 表示数据类型对应的比较器类型。   
+
+#### 节点 
+节点成员包括一个 key 和 next_ 指针数组，key 用于存储数据；next_ 是每一层的指针，指向后继节点，默认只包含一个，即最低一层的指针，指针的数量等于节点高度（一个随机值）。    
+```
+template<typename Key, class Comparator>
+struct SkipList<Key,Comparator>::Node {
+  explicit Node(const Key& k) : key(k) { }
+  // key 和 entry 都可以表示数据，只不过 key 是实际的数据字段名，entry 属于逻辑名称。
+  // 为了防止与 key-value pair 中的 key 混淆，只在跳表层面使用 key 表示数据，其他地方一般用 entry 来表示。
+  Key const key;
+  ...
+ private:
+  // Array of length equal to the node height.  next_[0] is lowest level link.
+  port::AtomicPointer next_[1];
+}
+```
 
 #### 结构
 1、kMaxHeight 最大高度设置为12，理想节点数为4096，这跟 Memtable 的大小有关；        
-2、compare_ 比较器对象，跳表内部通过 () 调用，需要实现 operator() 方法。
+2、compare_ 用于比较 entry，需重写 operator()，定义比较规则；
 3、arena_ 内存池用于分配节点内存；  
-4、head_ 指向跳表头节点；  
+4、head_ 指向跳表头节点，头节点为空节点，有效节点在下一个；  
 5、rnd_ 生成均匀分布的随机数。  
 ```
 template<typename Key, class Comparator>
@@ -97,11 +112,10 @@ class SkipList {
   ...
 private:
   enum { kMaxHeight = 12 };
-  // Immutable after construction
+  // 类型由模板参数指定
   Comparator const compare_;
   Arena* const arena_;    // Arena used for allocations of nodes
   Node* const head_;
-  // Read/written only by Insert().
   Random rnd_;
 }
 ```
@@ -131,16 +145,16 @@ Node* SkipList::FindGreaterOrEqual(const Key& key, Node** prev) const {
   int level = GetMaxHeight() - 1;
   while (true) {
     // 在当前层级，获得当前节点 x 的后继节点
-    Node* next = x->Next(level);
-    // 目标值 key 与后继节点值 next-> key进行比较
+    Node* next = x->Next(level); 
     if (KeyIsAfterNode(key, next)) {
-      // 如果 key > next->key or next is NULL，遍历后继节点
+      // 若 key > next->key，向前遍历，后继节点成为当前节点
       x = next;
     } else {
-      // 可以记录每一层级的前任节点，用于插入节点时使用
+      // 若 next->key >= key，往下层移动
+      // 可以记录每一层级的前任节点，插入节点时才会使用
       if (prev != NULL) prev[level] = x;
       if (level == 0) {
-        // 已经到达最低一层，返回当前后继节点，显然是第一个 >= key 的节点
+        // 已经到达最低一层，显然 next 是第一个 >= key 的节点
         return next;
       } else {
         // 移动到下一层级
@@ -151,25 +165,18 @@ Node* SkipList::FindGreaterOrEqual(const Key& key, Node** prev) const {
 }
 ```
 key 比较规则：   
-1、NULL 表示无限大值，任意节点都会小于 NULL；    
-2、比较 internal key。先比较 user key ，然后比较 seq num。（user key 升序排序（默认按字节大小），seq num 降序排序。）   
+1、NULL 表示无限大值，大于任意 key；    
+2、用户自定义的比较规则。  
 ```
-// 判断 key 是否大于 next->key
+// 若 key > node->key，返回 true  
 bool SkipList::KeyIsAfterNode(const Key& key, Node* n) const {
-  // NULL 必返回 false；
-  // compare_ 重写了 operator()方法，内部调用了 InternalKeyComparator 进行 internal key 的比较
+  // NULL 必返回 false，因为 NULL 大于任意 key；
+  // 非 NULL，若 key > node->key，返回 true。 
   return (n != NULL) && (compare_(n->key, key) < 0);
 }
 ```
-
-![skiplist image3](../img/skiplist_memkey_store.png "实际分布")    
-**注：** 上图只显示了 internal key 和 value，忽略了两者的前缀长度。     
-
-如上图所示，现有一个跳表存储的结构片段示例，key1 插入了三个版本 {3, 2, 1}，key2 插入了一个版本 {1}，且 key2 > key1。由于序列号是降序排序，那么有 {uk: key1, s: 11} < {uk: key1, s: 10} < {uk: key1, s:7}。    
-
-**序列号与读取操作**   
-序列号的作用是实现快照隔离。序列号随时间递增，可以表示某一时刻用户读取数据时，数据所处的状态，也就是快照。在用户读取数据时，需要传入一个序列号，在这个序列号之后的更新将被隔离。
-例：现在用户使用序列号 8，读取 key1 的值，跳表内部会找到第一个 >= {uk: key1, s: 8} 的节点，如果 key1 存在，那么会找到第一个 seq num <= 8 的节点，即 {uk: key1, s: 7, v: 1}，最终读取到的值为 1，在这之后的更新版本 {3, 2} 对用户来说是不可见的，用户只能读取到序列号8 之前的最新数据 1。        
+**Memtable 查找**  
+Memtable 会指定 compare_ 类型为 KeyComparator，KeyComparator 会从数据 key 中提取 internal key 进行  比较。所以从 Memtable 中进行查找本质上会返回 >= 目标 internal key 的首个 entry。
 
 ### 源码
 ```
