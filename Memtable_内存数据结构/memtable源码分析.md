@@ -11,7 +11,7 @@ key 解析可见：[Key存储分析](../Key_键值对存储/Key存储分析.md)
 1、comparator_：KeyComparator 对象，内部封装了 InternalKeyComparator 比较器；   
 2、refs_：Memtable 的引用计数，在释放 Memtable 时必须保证没有外部引用；   
 3、arena_：内存池，提供高效的内存管理，用于分配 memtable entry 和跳表节点的内存；      
-4、table_：跳表，作为 Memtable 的存储结构，用于存储 memtable entry。
+4、table_：跳表，作为 Memtable 的底层存储，用于存储 memtable entry。
 ```
 // db/memtable.h
 class Memtable {
@@ -29,6 +29,7 @@ class Memtable {
   // KeyComparator 实现了 memtable key 的比较逻辑。
   typedef SkipList<const char*, KeyComparator> Table;
 
+  // 会传入 skiplist 中，作为 entry 比较器
   KeyComparator comparator_;
   int refs_;
   Arena arena_;
@@ -36,46 +37,36 @@ class Memtable {
 }
 ```
 为什么已经有了 InternalKeyComparator，还需要 KeyComparator？   
-因为跳表存储的是 memtable key，需要去除长度前缀获得 internal key，然后才可以传入 InternalKeyComparator 进行比较。
+因为跳表存储的是 memtable key，需要用 KeyComparator 接收 memtable key，接着通过前缀长度获得 internal key，传入 InternalKeyComparator 进行比较。
 ```
 // db/memtable.cc
 int MemTable::KeyComparator::operator()(const char* aptr, const char* bptr)
     const {
   // Internal keys are encoded as length-prefixed strings.
-  // 去除长度前缀，获得 internal key
+  // 通过前缀长度，获得 internal key
   Slice a = GetLengthPrefixedSlice(aptr);
   Slice b = GetLengthPrefixedSlice(bptr);
+  // 调用 InternalKeyComparator
   return comparator.Compare(a, b);
 }
 
+// 该函数作用是解析前缀长度，获取对应长度的字符串 Slice
 static Slice GetLengthPrefixedSlice(const char* data) {
   uint32_t len;
   const char* p = data;
-  // 解码得到长度，32位变长长度编码最多是5个字节，所以 p+5 是长度信息最大的结束边界
-  // 解码后，指针p指向 internal key 的起始地址
+  // 解码得到长度，32位变长长度编码最多是5个字节，所以 p+5 是前缀长度最大的结束边界
+  // 解码后，指针p 指向 internal key 的起始地址，len 表示 internal key 长度。
   p = GetVarint32Ptr(p, p + 5, &len);
   return Slice(p, len);
 }
 ``` 
 从这里也可以看出不同 key 对应这不同的比较器：    
-<user key, UserComparator>，<internal key, InternalKeyComparator>，<memtable key, KeyComparator>。    
+user key -> UserComparator，internal key -> InternalKeyComparator，memtable key-> KeyComparator。    
 Comparator 解析可见：[Comparator源码分析](../Comparator_比较器/Comparator源码分析.md)
 
+
 #### 存储细节
-**跳表节点**   
-跳表的节点包括一个 key 和 next_ 指针数组，key 是数据字段，存储 entry；next_ 是每一层的指针，指向后继节点，默认只包含一个，即最低一层的指针，指针的数量等于节点高度（一个随机值）。    
-在 Memtable 实现上，key 的类型会被指定为 const char*，指向真实的 entry。
-```
-template<typename Key, class Comparator>
-struct SkipList<Key,Comparator>::Node {
-  explicit Node(const Key& k) : key(k) { }
-  Key const key;
-  ...
- private:
-  // Array of length equal to the node height.  next_[0] is lowest level link.
-  port::AtomicPointer next_[1];
-}
-```
+
 **内存池**    
 内存池使用内存对齐方式分配跳表节点，主要是考虑了缓存空间的局部性。    
 常见的缓存行大小是 64B，以 64 位平台为例，缓存行可以缓存 8 个指针，足够容纳下大部分节点，因为节点最大高度限制为12，而达到这个高度的概率是很小的。因此采用内存对齐分配，节点内的指针很可能处于同一个缓存行内，当跳表在不同层级间跳转时，指针可以直接在缓存获取，这样就可以利用缓存的空间局部性提高访问效率。
@@ -108,6 +99,24 @@ void MemTable::Add(SequenceNumber s, ValueType type,
 }
 ```
 以上两种不同的内存分配方式，是在内存使用效率和系统性能之间进行权衡的结果。
+
+#### 跳表
+memtable entry 本质是 key-value pair，它是一个连续的字符串
+所以跳表的模板参数 Key 被指定为 const char*，相应地，Comparator 被指定为 KeyComparator，它包含一个 InternalKeyComparator 成员，用于比较 internal key。   
+
+**有序存储**   
+节点按以下规则排序：先 user key 升序、后 seq num 降序。（internal key 的排序逻辑）
+
+![skiplist image3](../img/skiplist_memkey_store.png "实际分布")    
+**注：** 上图只显示了 internal key 和 value，忽略了两者的前缀长度。     
+
+如上图所示，现有一个跳表存储结构片段示例，key1 插入了三个版本 {3, 2, 1}，key2 插入了一个版本 {1}，且 key2 > key1。由于序列号是降序排序，那么有 {uk: key1, s: 11} < {uk: key1, s: 10} < {uk: key1, s:7}。    
+
+**快照隔离与数据读取**   
+快照隔离通过序列号实现。序列号随时间递增，可以表示某一时刻用户读取数据时，数据所处的状态，也就是快照。在用户读取数据时，需要传入一个序列号，在这个序列号之后的更新将被隔离。    
+读取示例：现在用户使用序列号 8，读取 key1 的值，跳表内部会找到第一个 >= {uk: key1, s: 8} 的节点，如果 key1 存在，那么会找到第一个 seq num <= 8 的节点，即 {uk: key1, s: 7, v: 1}，最终读取到的值为 1，在这之后的更新版本 {3, 2} 对用户来说是不可见的，用户只能读取到序列号8 之前的最新数据 1。  
+
+
 ### 读写操作
 读写操作涉及的技术点在其他文章中都已经分析过。
 #### 写操作

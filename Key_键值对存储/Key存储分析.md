@@ -3,7 +3,7 @@
 当用户使用 put(key, value) 操作向 LevelDB 插入数据时，并非直接在底层存储原始 key-value，而是要经过编码处理后存储于 memtable，这个过程中 key 有不同的含义。
 
 ### 分析
-memtable 数据以 entry 为单位，每一条 entry 都由 key-value 经过长度前缀编码生成。换句话说，memtable entry 是经过编码的 key-value pair。   
+memtable 数据以 entry 为单位，每一条 entry 都由 key&value 经过长度前缀编码生成。换句话说，memtable entry 是经过编码的 key-value pair。   
 
 ![memtable entry](../img/memEntry.png "memtable entry")
 #### 不同的 Key
