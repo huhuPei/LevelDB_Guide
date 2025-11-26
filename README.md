@@ -1,5 +1,7 @@
 # LevelDB_Guide
-关于LevelDB的源码解析 ——基于leveldb v1.18版本
+关于LevelDB的源码解析 ——基于leveldb v1.18版本     
+
+简介：LevelDB 是由 Google 开发的高性能键值存储引擎，提供字符串键到字符串值的有序映射。
 
 ## 学习要点：  
 ### Memtable
@@ -21,8 +23,9 @@
 
 ### DB 层设计
 1. Data Access 访问接口
-2. Snapshot 快照设计
-3. Version 版本控制
+2. Write Batch 批写入 
+3. Snapshot 快照设计
+4. Version 版本控制
 
 **目的**：通过 LevelDB 各个组件的解析，结合软件中的实际代码，巩固基础，熟悉语言特性，学习良好的编程规范与优秀的软件设计思想。
 
