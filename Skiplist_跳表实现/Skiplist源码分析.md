@@ -82,7 +82,7 @@ P(h=k) = 1/2<sup>k-1</sup>。
 跳表每次查找都会跳过一定数量的节点，这就是跳表加快查询速度的原因。在分支数为2 时，最理想的效果就是每次跳过一半的节点。
 
 ### 内部实现
-skiplist 用 entry 表示每条数据，其类型由用户指定。它有两个模板参数，Key 表示 entry 数据类型，Comparator 表示数据类型对应的比较器类型。   
+skiplist 用 entry/key 表示每条数据，其类型由用户指定。它有两个模板参数，Key 表示 entry 数据类型，Comparator 表示数据类型对应的比较器类型。   
 
 #### 节点 
 节点成员包括一个 key 和 next_ 指针数组，key 用于存储数据；next_ 是每一层的指针，指向后继节点，默认只包含一个，即最低一层的指针，指针的数量等于节点高度（一个随机值）。    
@@ -101,9 +101,9 @@ struct SkipList<Key,Comparator>::Node {
 ```
 
 #### 结构
-1、kMaxHeight 最大高度设置为12，理想节点数为4096，这跟 Memtable 的大小有关；        
-2、compare_ 用于比较 entry，需重写 operator()，定义比较规则；
-3、arena_ 内存池用于分配节点内存；  
+1、kMaxHeight 最大高度设置为12，理想的节点总数为4096，这跟 Memtable 的大小有关；        
+2、compare_ 比较器，用于比较 entry，会被 Memtable 指定为 KeyComparator 类型；   
+3、arena_ 内存池，用于分配节点内存；  
 4、head_ 指向跳表头节点，头节点为空节点，有效节点在下一个；  
 5、rnd_ 生成均匀分布的随机数。  
 ```
@@ -112,7 +112,7 @@ class SkipList {
   ...
 private:
   enum { kMaxHeight = 12 };
-  // 类型由模板参数指定
+  // 类型由模板参数指定，一个可调用对象
   Comparator const compare_;
   Arena* const arena_;    // Arena used for allocations of nodes
   Node* const head_;
@@ -164,9 +164,9 @@ Node* SkipList::FindGreaterOrEqual(const Key& key, Node** prev) const {
   }
 }
 ```
-key 比较规则：   
+#### 比较方法   
 1、NULL 表示无限大值，大于任意 key；    
-2、用户自定义的比较规则。  
+2、Intenal key 比较规则。（见 [Comparator源码分析->Interanl key](../Comparator_比较器/Comparator源码分析.md#internalkey-比较器)）  
 ```
 // 若 key > node->key，返回 true  
 bool SkipList::KeyIsAfterNode(const Key& key, Node* n) const {
@@ -175,8 +175,7 @@ bool SkipList::KeyIsAfterNode(const Key& key, Node* n) const {
   return (n != NULL) && (compare_(n->key, key) < 0);
 }
 ```
-**Memtable 查找**  
-Memtable 会指定 compare_ 类型为 KeyComparator，KeyComparator 会从数据 key 中提取 internal key 进行  比较。所以从 Memtable 中进行查找本质上会返回 >= 目标 internal key 的首个 entry。
+compare_ 类型为 KeyComparator（由 Memtable 指定），KeyComparator 封装了 InternalKeyComparator，它实际比较的是 internal key。所以在 skiplist 的查找方法，本质上是返回 >= internal key (来自目标 key) 的第一个节点。
 
 ### 源码
 ```
