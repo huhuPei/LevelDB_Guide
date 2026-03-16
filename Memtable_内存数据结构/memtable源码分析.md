@@ -72,12 +72,12 @@ Comparator 解析可见：[Comparator源码分析](../Comparator_比较器/Compa
 常见的缓存行大小是 64B，以 64 位平台为例，缓存行可以缓存 8 个指针，足够容纳下大部分节点，因为节点最大高度限制为12，而达到这个高度的概率是很小的。因此采用内存对齐分配，节点内的指针很可能处于同一个缓存行内，当跳表在不同层级间跳转时，指针可以直接在缓存获取，这样就可以利用缓存的空间局部性提高访问效率。
 ```
 // db/skiplist.h
-// 分配一个新节点
+// 分配一个新节点，需要内存对齐
 template<typename Key, class Comparator>
 typename SkipList<Key,Comparator>::Node*
 SkipList<Key,Comparator>::NewNode(const Key& key, int height) {
-  // 节点内存对齐，可以根据高度动态分配空间，next_ 可以按照数组的方式访问各级指针
-  // 使用这种动态分配数组空间的方式，需要将声明在结构体的末尾
+  // 根据高度动态分配空间，next_ 可以按照数组的方式访问各级指针
+  // 动态分配数组空间，需要将数组声明在结构体的末尾
   // 由于 Node 已经包含最低一级指针，因此只需要再分配 height - 1 个指针空间
   char* mem = arena_->AllocateAligned(
       sizeof(Node) + sizeof(port::AtomicPointer) * (height - 1));
@@ -165,9 +165,10 @@ bool MemTable::Get(const LookupKey& key, std::string* value, Status* s) {
   Slice memkey = key.memtable_key();
   Table::Iterator iter(&table_);
   // 使用跳表的迭代器进行查找
+  // 迭代器定位到第一个 >= internal key (来自参数 key) 的节点（目标节点）
   iter.Seek(memkey.data());
   if (iter.Valid()) {
-    // 返回的是第一个 >= internal key 的 entry 
+    // 获取目标节点的 entry
     const char* entry = iter.key();
     uint32_t key_length;
     // 解码变长长度前缀，获得 internal key 的大小  
